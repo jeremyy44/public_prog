@@ -16,8 +16,10 @@ def get_dir_size(path):
     for root, _, files in os.walk(path):
         for f in files:
             fp = os.path.join(root, f)
-            if os.path.exists(fp):
+            try:
                 total += os.path.getsize(fp)
+            except (OSError, FileNotFoundError):
+                continue  # File deleted or inaccessible
     return total
 
 def bytes_to_gb(b):
@@ -40,27 +42,34 @@ def main():
     medias = [
         os.path.join(args.library, d)
         for d in os.listdir(args.library)
-        if os.path.isdir(os.path.join(args.library, d))
+        if os.path.isdir(os.path.join(args.library, d)) and not d.startswith('.')
     ]
 
     random.shuffle(medias)
 
+    # Calculate sizes for all media directories
+    media_with_sizes = []
+    for media in medias:
+        size = get_dir_size(media)
+        media_with_sizes.append((media, size))
+
+    # Better bin-packing: keep trying to add items that fit
     selected = []
     total_size = 0
     target_bytes = args.size * (1024 ** 3)
+    used_indices = set()
 
-    for media in medias:
-        size = get_dir_size(media)
-        if total_size + size > target_bytes:
+    for i, (media, size) in enumerate(media_with_sizes):
+        if i in used_indices:
             continue
-        selected.append((media, size))
-        total_size += size
-        if total_size >= target_bytes:
-            break
+        if total_size + size <= target_bytes:
+            selected.append((media, size))
+            total_size += size
+            used_indices.add(i)
 
     print("\nSelected medias")
     print("=" * 72)
-    print(f"{'#':<4} {'Media':<50} {'Size (GB)':>10}")
+    print(f"{'#':<4} {'Media':<50} {'Size (GB)':>1}")
     print("-" * 72)
 
     for i, (media, size) in enumerate(selected, 1):
@@ -68,7 +77,7 @@ def main():
         print(f"{i:<4} {name:<50} {bytes_to_gb(size):>10.2f}")
 
     print("-" * 72)
-    print(f"{'TOTAL':<54} {bytes_to_gb(total_size):>10.2f}")
+    print(f"{'TOTAL':<55} {bytes_to_gb(total_size):>10.2f}")
     print("=" * 72)
 
     if not args.delete:
@@ -82,11 +91,20 @@ def main():
         print("Aborted. No files were deleted.")
         return
 
+    failed = []
     for media, _ in selected:
         print(f"Deleting: {media}")
-        shutil.rmtree(media)
+        try:
+            shutil.rmtree(media)
+        except OSError as e:
+            print(f"  ERROR: {e}")
+            failed.append(media)
 
     print("\nDeletion complete.")
+    if failed:
+        print(f"\nFailed to delete {len(failed)} item(s):")
+        for media in failed:
+            print(f"  - {media}")
 
 if __name__ == "__main__":
     main()
