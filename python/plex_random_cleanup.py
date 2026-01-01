@@ -25,9 +25,9 @@ def bytes_to_gb(b):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Random Plex movie cleanup tool"
+        description="Random Plex media cleanup tool"
     )
-    parser.add_argument("library", help="Path to Plex movie library")
+    parser.add_argument("library", help="Path to Plex media library")
     parser.add_argument("--size", type=float, required=True, help="Target size in GB")
     parser.add_argument("--delete", action="store_true", help="Actually delete files")
     parser.add_argument("--seed", type=int, help="Random seed for reproducibility")
@@ -37,34 +37,34 @@ def main():
     if args.seed is not None:
         random.seed(args.seed)
 
-    movies = [
+    medias = [
         os.path.join(args.library, d)
         for d in os.listdir(args.library)
         if os.path.isdir(os.path.join(args.library, d))
     ]
 
-    random.shuffle(movies)
+    random.shuffle(medias)
 
     selected = []
     total_size = 0
     target_bytes = args.size * (1024 ** 3)
 
-    for movie in movies:
-        size = get_dir_size(movie)
+    for media in medias:
+        size = get_dir_size(media)
         if total_size + size > target_bytes:
             continue
-        selected.append((movie, size))
+        selected.append((media, size))
         total_size += size
         if total_size >= target_bytes:
             break
 
-    print("\nSelected movies")
+    print("\nSelected medias")
     print("=" * 72)
-    print(f"{'#':<4} {'Movie':<50} {'Size (GB)':>10}")
+    print(f"{'#':<4} {'Media':<50} {'Size (GB)':>10}")
     print("-" * 72)
 
-    for i, (movie, size) in enumerate(selected, 1):
-        name = truncate_middle(os.path.basename(movie), 50)
+    for i, (media, size) in enumerate(selected, 1):
+        name = truncate_middle(os.path.basename(media), 50)
         print(f"{i:<4} {name:<50} {bytes_to_gb(size):>10.2f}")
 
     print("-" * 72)
@@ -82,9 +82,9 @@ def main():
         print("Aborted. No files were deleted.")
         return
 
-    for movie, _ in selected:
-        print(f"Deleting: {movie}")
-        shutil.rmtree(movie)
+    for media, _ in selected:
+        print(f"Deleting: {media}")
+        shutil.rmtree(media)
 
     print("\nDeletion complete.")
 
